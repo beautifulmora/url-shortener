@@ -1,0 +1,55 @@
+version: '3.8'
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: password
+      POSTGRES_DB: shortener
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d shortener"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+    volumes:
+      - redisdata:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  app:
+    build: .
+    ports:
+      - "8080:8080"
+    environment:
+      HTTP_ADDR: ":8080"
+      BASE_URL: "http://localhost:8080"
+      DATABASE_URL: "postgres://postgres:password@postgres:5432/shortener?sslmode=disable"
+      REDIS_ADDR: "redis:6379"
+      JWT_SECRET: "super-secret-jwt-key-change-me"
+      BATCH_SIZE: "100"
+      BATCH_INTERVAL: "5s"
+      RATE_LIMIT_REQUESTS: "60"
+      RATE_LIMIT_WINDOW: "1m"
+      TRUSTED_PROXIES: ""
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+volumes:
+  pgdata:
+  redisdata:
